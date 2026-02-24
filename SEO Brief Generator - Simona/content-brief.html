@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SEO Content Brief Generator</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(135deg, #0ea5e9 0%, #7c3aed 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    header {
+      text-align: center;
+      color: white;
+      margin-bottom: 2rem;
+    }
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    header p { opacity: 0.85; margin-top: 0.4rem; font-size: 0.95rem; }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+      padding: 2rem;
+      width: 100%;
+      max-width: 800px;
+    }
+
+    #idleState   { display: block; }
+    #loadingState { display: none; }
+    #completeState { display: none; }
+
+    .form-group { margin-bottom: 1.25rem; }
+    label {
+      display: block;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 0.4rem;
+      font-size: 0.9rem;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 1rem;
+      transition: border-color 0.2s;
+      outline: none;
+    }
+    input[type="text"]:focus { border-color: #7c3aed; }
+    .hint { font-size: 0.8rem; color: #6b7280; margin-top: 0.3rem; }
+
+    button {
+      padding: 0.75rem 1.75rem;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    button:active { transform: scale(0.98); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #0ea5e9 0%, #7c3aed 100%);
+      color: white;
+      width: 100%;
+    }
+    .btn-primary:hover:not(:disabled) { opacity: 0.9; }
+
+    .btn-secondary { background: #6b7280; color: white; margin-right: 0.5rem; }
+    .btn-secondary:hover:not(:disabled) { background: #4b5563; }
+
+    .btn-download {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: white;
+    }
+    .btn-download:hover { opacity: 0.9; }
+
+    .btn-copy {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      color: white;
+    }
+    .btn-copy:hover { opacity: 0.9; }
+    .btn-copy.copied { background: #10b981; }
+
+    .loading-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+    .spinner {
+      width: 24px; height: 24px;
+      border: 3px solid #e5e7eb;
+      border-top-color: #7c3aed;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-title { font-weight: 700; font-size: 1.1rem; color: #111827; }
+    .loading-subtitle { font-size: 0.8rem; color: #6b7280; }
+
+    #progressFeed {
+      background: #0f0f1a;
+      border-radius: 8px;
+      padding: 1rem;
+      height: 280px;
+      overflow-y: auto;
+      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      font-size: 0.82rem;
+      color: #a5b4fc;
+      scroll-behavior: smooth;
+    }
+    .progress-line {
+      padding: 0.15rem 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      word-break: break-word;
+    }
+    .progress-line.step   { color: #c4b5fd; font-weight: 600; }
+    .progress-line.error  { color: #f87171; }
+    .progress-line.heartbeat { color: #374151; font-style: italic; }
+
+    .complete-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .complete-badge {
+      background: #d1fae5;
+      color: #065f46;
+      padding: 0.3rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    #reportWrapper {
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    #reportFrame {
+      width: 100%;
+      min-height: 600px;
+      border: none;
+      display: block;
+    }
+
+    #errorBanner {
+      display: none;
+      background: #fef2f2;
+      border: 1px solid #fca5a5;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      color: #991b1b;
+      font-size: 0.9rem;
+      margin-top: 1rem;
+    }
+
+    footer {
+      margin-top: 1.5rem;
+      color: rgba(255,255,255,0.6);
+      font-size: 0.78rem;
+      text-align: center;
+    }
+    footer a { color: rgba(255,255,255,0.8); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>SEO Content Brief Generator</h1>
+    <p>Analyze top competitors and generate a data-driven content brief with Claude AI</p>
+  </header>
+
+  <div class="card">
+
+    <!-- ══ IDLE STATE ══ -->
+    <div id="idleState">
+      <div class="form-group">
+        <label for="keywordInput">Target Keyword</label>
+        <input
+          type="text"
+          id="keywordInput"
+          placeholder="e.g. live casino finland, best online slots uk"
+          autocomplete="off"
+        >
+        <p class="hint">
+          Fetches top 5 Google results, scrapes each page, and generates a full content brief.
+          Takes 1–3 minutes.
+        </p>
+      </div>
+      <div id="errorBanner"></div>
+      <button class="btn-primary" id="startBtn" onclick="startBrief()">
+        Generate Content Brief
+      </button>
+    </div>
+
+    <!-- ══ LOADING STATE ══ -->
+    <div id="loadingState">
+      <div class="loading-header">
+        <div class="spinner"></div>
+        <div>
+          <div class="loading-title" id="loadingTitle">Analyzing competitors…</div>
+          <div class="loading-subtitle">Serper search → page scraping → Claude analysis</div>
+        </div>
+      </div>
+      <div id="progressFeed"></div>
+    </div>
+
+    <!-- ══ COMPLETE STATE ══ -->
+    <div id="completeState">
+      <div class="complete-actions">
+        <span class="complete-badge">✓ Brief Ready</span>
+        <button class="btn-download" onclick="downloadReport()">Download HTML</button>
+        <button class="btn-copy" id="copyBtn" onclick="copyReport()">Copy Text</button>
+        <button class="btn-secondary" onclick="resetToIdle()">New Keyword</button>
+      </div>
+      <div id="reportWrapper">
+        <iframe id="reportFrame" title="Content Brief"></iframe>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    Powered by Serper + Claude Sonnet 4.6 &nbsp;|&nbsp;
+    Backend must be running at <a href="http://127.0.0.1:8000/health" target="_blank">127.0.0.1:8000</a>
+  </footer>
+
+  <script>
+    const API_BASE = 'http://127.0.0.1:8000';
+
+    let currentJobId = null;
+    let currentReportHtml = null;
+    let currentKeyword = null;
+    let eventSource = null;
+
+    function showState(state) {
+      document.getElementById('idleState').style.display    = state === 'idle'     ? 'block' : 'none';
+      document.getElementById('loadingState').style.display = state === 'loading'  ? 'block' : 'none';
+      document.getElementById('completeState').style.display = state === 'complete' ? 'block' : 'none';
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('errorBanner');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    function clearError() {
+      const el = document.getElementById('errorBanner');
+      el.textContent = '';
+      el.style.display = 'none';
+    }
+
+    function appendProgress(msg, cls = '') {
+      const feed = document.getElementById('progressFeed');
+      const line = document.createElement('div');
+      line.className = 'progress-line' + (cls ? ' ' + cls : '');
+      const ts = new Date().toLocaleTimeString();
+      line.textContent = `[${ts}] ${msg}`;
+      feed.appendChild(line);
+      feed.scrollTop = feed.scrollHeight;
+    }
+
+    async function startBrief() {
+      const input = document.getElementById('keywordInput');
+      const keyword = input.value.trim();
+      if (!keyword) {
+        showError('Please enter a keyword.');
+        return;
+      }
+      clearError();
+
+      document.getElementById('startBtn').disabled = true;
+      currentKeyword = keyword;
+      currentReportHtml = null;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/content-brief`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ keyword }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ detail: res.statusText }));
+          throw new Error(err.detail || res.statusText);
+        }
+        const data = await res.json();
+        currentJobId = data.job_id;
+      } catch (err) {
+        showError(`Failed to start: ${err.message}. Is the backend running at ${API_BASE}?`);
+        document.getElementById('startBtn').disabled = false;
+        return;
+      }
+
+      document.getElementById('progressFeed').innerHTML = '';
+      document.getElementById('loadingTitle').textContent = `Analyzing "${keyword}"…`;
+      showState('loading');
+
+      openStream(currentJobId);
+    }
+
+    function openStream(jobId) {
+      if (eventSource) eventSource.close();
+
+      eventSource = new EventSource(`${API_BASE}/api/content-brief/${jobId}/stream`);
+
+      eventSource.addEventListener('progress', (e) => {
+        const msg = e.data || '';
+        const cls = msg.startsWith('ERROR') ? 'error'
+                  : (msg.startsWith('[') || msg.includes('Step') || msg.includes('Sending')) ? 'step'
+                  : '';
+        appendProgress(msg, cls);
+      });
+
+      eventSource.addEventListener('heartbeat', () => {
+        appendProgress('· · ·', 'heartbeat');
+      });
+
+      eventSource.addEventListener('complete', (e) => {
+        eventSource.close();
+        try {
+          const payload = JSON.parse(e.data);
+          currentReportHtml = payload.report_html || '';
+        } catch {
+          currentReportHtml = e.data || '';
+        }
+        renderReport(currentReportHtml);
+        showState('complete');
+      });
+
+      eventSource.addEventListener('error', (e) => {
+        eventSource.close();
+        const msg = e.data || 'Unknown error from server.';
+        appendProgress(`ERROR: ${msg}`, 'error');
+        const feed = document.getElementById('progressFeed');
+        const btn = document.createElement('button');
+        btn.textContent = 'Back to Search';
+        btn.style.cssText = 'margin-top:1rem;padding:.5rem 1rem;background:#7c3aed;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:.85rem;';
+        btn.onclick = resetToIdle;
+        feed.appendChild(btn);
+        feed.scrollTop = feed.scrollHeight;
+      });
+
+      eventSource.onerror = () => {
+        setTimeout(() => { if (currentJobId) pollFallback(currentJobId); }, 3000);
+      };
+    }
+
+    async function pollFallback(jobId) {
+      try {
+        const res = await fetch(`${API_BASE}/api/content-brief/${jobId}`);
+        if (!res.ok) return;
+        const job = await res.json();
+        if (job.status === 'complete' && job.report_html) {
+          if (eventSource) eventSource.close();
+          currentReportHtml = job.report_html;
+          renderReport(currentReportHtml);
+          showState('complete');
+        } else if (job.status === 'error') {
+          if (eventSource) eventSource.close();
+          appendProgress(`ERROR: ${job.error || 'Brief generation failed'}`, 'error');
+        }
+      } catch { /* ignore */ }
+    }
+
+    function renderReport(html) {
+      const frame = document.getElementById('reportFrame');
+      frame.srcdoc = html;
+      frame.onload = () => {
+        try {
+          const h = frame.contentDocument.documentElement.scrollHeight;
+          frame.style.height = Math.max(600, h) + 'px';
+        } catch { frame.style.height = '800px'; }
+      };
+    }
+
+    function copyReport() {
+      const frame = document.getElementById('reportFrame');
+      const btn = document.getElementById('copyBtn');
+      try {
+        const doc = frame.contentDocument;
+        const html = doc.body.innerHTML;
+        const text = doc.body.innerText;
+        const item = new ClipboardItem({
+          'text/html':  new Blob([html],  { type: 'text/html' }),
+          'text/plain': new Blob([text],  { type: 'text/plain' }),
+        });
+        navigator.clipboard.write([item]).then(() => {
+          btn.textContent = 'Copied!';
+          btn.classList.add('copied');
+          setTimeout(() => {
+            btn.textContent = 'Copy Text';
+            btn.classList.remove('copied');
+          }, 2000);
+        });
+      } catch {
+        alert('Could not copy — try the Download button instead.');
+      }
+    }
+
+    function downloadReport() {
+      if (!currentReportHtml) return;
+      const blob = new Blob([currentReportHtml], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const safeName = (currentKeyword || 'brief').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      a.href = url;
+      a.download = `content_brief_${safeName}.html`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function resetToIdle() {
+      if (eventSource) { eventSource.close(); eventSource = null; }
+      currentJobId = null;
+      currentReportHtml = null;
+      document.getElementById('keywordInput').value = '';
+      document.getElementById('startBtn').disabled = false;
+      document.getElementById('progressFeed').innerHTML = '';
+      document.getElementById('reportFrame').srcdoc = '';
+      clearError();
+      showState('idle');
+    }
+
+    document.getElementById('keywordInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') startBrief();
+    });
+  </script>
+</body>
+</html>

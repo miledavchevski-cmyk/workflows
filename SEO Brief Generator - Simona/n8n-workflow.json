@@ -1,0 +1,458 @@
+{
+  "name": "SEO Content Brief Final- Simona",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "997de708-48d5-4284-8925-eedc635d7676",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "094b64bb-aa06-4a20-94a7-6d6ee47088c9",
+              "name": "keyword",
+              "value": "live casino finland",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "a3a370c6-27fc-4c47-a45f-48062cc2af90",
+      "name": "Enter Keyword"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://google.serper.dev/search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-API-KEY",
+              "value": "YOUR_SERPER_API_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $('Enter Keyword').first().json.keyword }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "8ad92883-c60f-4d0a-a815-df12afb4c58f",
+      "name": "Get Search Results"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the search results from previous node\nconst searchResults = $input.first().json;\n\n// Extract only the organic results\nconst organicResults = searchResults.organic || [];\n\n// Take only the top 5 results (to save time)\nconst topResults = organicResults.slice(0, 5);\n\n// Create output with just the URLs\nconst urls = topResults.map((result, index) => ({\n  json: {\n    url: result.link,\n    title: result.title,\n    position: index + 1\n  }\n}));\n\nreturn urls;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        0
+      ],
+      "id": "2573ec8f-1f6a-4d56-8c80-61032a020a0f",
+      "name": "Extract top 5 URLS"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "   Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        832,
+        0
+      ],
+      "id": "247286f9-3a14-4f7b-852e-ea3f3ae8fc53",
+      "name": "Fetch Page Content",
+      "alwaysOutputData": false,
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "content",
+              "cssSelector": "article, .post-content, .entry-content, main, body"
+            },
+            {
+              "key": "pageTitle",
+              "cssSelector": "h1, .title, .post-title"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        1024,
+        0
+      ],
+      "id": "de676c14-7201-409a-9902-78747eef2a3a",
+      "name": "Extract text content"
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {
+              "fieldToAggregate": "content"
+            },
+            {
+              "fieldToAggregate": "pageTitle"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1232,
+        0
+      ],
+      "id": "3802be39-84a6-4a5d-b71e-dd54b4ae600a",
+      "name": "Combine All Content"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the keyword from the original input\nconst keyword = $(\"Enter Keyword\").first().json.keyword;\n\n// Get all the competitor content from the current input\nconst competitors = $input.all().map(item => item.json);\n\n// Build a summary of competitor content\nlet competitorSummary = \"COMPETITOR ANALYSIS:\\n\\n\";\ncompetitors.forEach((item, index) => {\n  if (item.pageTitle && item.content) {\n    competitorSummary += `Page ${index + 1}: ${item.pageTitle}\\n`;\n    \n    // Convert content to string if it's an object\n    let contentText = '';\n    if (typeof item.content === 'string') {\n      contentText = item.content;\n    } else if (typeof item.content === 'object') {\n      contentText = JSON.stringify(item.content);\n    }\n    \n    // Take first 500 characters of content\n    const contentPreview = contentText.substring(0, 500);\n    competitorSummary += `Content preview: ${contentPreview}...\\n\\n`;\n  }\n});\n\n// Create the prompt for ChatGPT\nconst prompt = `You are an expert SEO content strategist. Analyze the following competitor content for the keyword \"${keyword}\" and create a detailed content brief.\n\n${competitorSummary}\n\nBased on this analysis, provide:\n\n1. SEARCH INTENT: What are users actually looking for?\n2. COMMON TOPICS: What do all top-ranking pages cover?\n3. CONTENT GAPS: What's missing from most articles?\n4. RECOMMENDED STRUCTURE: What headings and sections should we include?\n5. WORD COUNT TARGET: Based on competitor analysis\n6. UNIQUE ANGLE: How can we stand out?\n\nFormat your response in clear sections with bullet points.`;\n\nreturn [{\n  json: {\n    keyword,\n    prompt,\n    competitorCount: competitors.length\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        0
+      ],
+      "id": "56f0bacd-dfaf-4734-a907-a0c7232febee",
+      "name": "Prepare AI Prompt",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the current input from Gemini\nconst promptResponse = $input.first().json;\n\n// Extract the text from Gemini's response\n// Correct path: content.parts[0].text\nlet contentBrief = '';\ncontentBrief = promptResponse.output;\n\n// Find the keyword from previous steps\nlet keyword = $(\"Enter Keyword\").first().json.keyword\n\n\n\n// Format the output\nreturn [{\n  json: {\n    keyword: keyword,\n    contentBrief: contentBrief,\n    analyzedAt: new Date().toISOString(),\n    briefLength: contentBrief.length,\n    summary: `Content brief for \"${keyword}\" is ready! Check the contentBrief field for detailed recommendations.`\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2000,
+        0
+      ],
+      "id": "b11cc1a0-37a8-4964-9747-23d16fac50f2",
+      "name": "Format Output"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1-hn6Be6R-H__-oqFzmCbbeQYaYtpHhCo0DNxZsKP7zQ",
+          "mode": "list",
+          "cachedResultName": "n8n test content brief",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1-hn6Be6R-H__-oqFzmCbbeQYaYtpHhCo0DNxZsKP7zQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1-hn6Be6R-H__-oqFzmCbbeQYaYtpHhCo0DNxZsKP7zQ/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "keyword",
+              "displayName": "keyword",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "contentBrief",
+              "displayName": "contentBrief",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "analyzedAt",
+              "displayName": "analyzedAt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "briefLength",
+              "displayName": "briefLength",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "summary",
+              "displayName": "summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2208,
+        0
+      ],
+      "id": "0793b0fd-2bb0-4e7e-9beb-dcba8082b13b",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "moEt4iF1RIrw2jcv",
+          "name": "Google Sheets account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        1664,
+        0
+      ],
+      "id": "5a683bd4-3b00-4947-9d23-32e26eb0843d",
+      "name": "AI Agent",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.0-flash-lite-001",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1888,
+        416
+      ],
+      "id": "fe3af30d-4b62-4dd1-bd76-83b056599afa",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "gqUGtASoXDOiZx2t",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Enter Keyword",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enter Keyword": {
+      "main": [
+        [
+          {
+            "node": "Get Search Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Search Results": {
+      "main": [
+        [
+          {
+            "node": "Extract top 5 URLS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract top 5 URLS": {
+      "main": [
+        [
+          {
+            "node": "Fetch Page Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Page Content": {
+      "main": [
+        [
+          {
+            "node": "Extract text content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract text content": {
+      "main": [
+        [
+          {
+            "node": "Combine All Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine All Content": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Output": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "deec78ca-2fa4-4ace-973f-e025279cc1db",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "35abe2a1006c1cf7a80bda13fb3488a3e0d45bfa8dad19bd419958d3c8a3d0f8"
+  },
+  "id": "i8OTjK4vdLgXHjij",
+  "tags": []
+}
