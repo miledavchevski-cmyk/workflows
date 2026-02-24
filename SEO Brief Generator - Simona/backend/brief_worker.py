@@ -21,31 +21,41 @@ def _push(job_store: dict, job_id: str, msg: str) -> None:
 
 # ── Main worker (runs in a thread) ─────────────────────────────────────────────
 
-def run_content_brief(job_store: dict[str, Any], job_id: str, keyword: str) -> None:
+def run_content_brief(
+    job_store: dict[str, Any],
+    job_id: str,
+    keyword: str,
+    competitor_urls: list[str] | None = None,
+) -> None:
     try:
         job_store[job_id]["status"] = "running"
         _push(job_store, job_id, f"Starting content brief for: {keyword}")
 
-        # ── Step 1: Serper search ──────────────────────────────────────────────
-        serper_key = os.getenv("SERPER_API_KEY", "")
-        if not serper_key:
-            raise ValueError("SERPER_API_KEY is not set in environment")
+        # ── Step 1: Resolve competitor URLs ───────────────────────────────────
+        # Use manually provided URLs if given, otherwise search via Serper.
+        if competitor_urls:
+            _push(job_store, job_id, f"Using {len(competitor_urls)} manually provided competitor URLs...")
+            organic = [{"link": url, "title": url} for url in competitor_urls[:5]]
+        else:
+            serper_key = os.getenv("SERPER_API_KEY", "")
+            if not serper_key:
+                raise ValueError("SERPER_API_KEY is not set in environment")
 
-        _push(job_store, job_id, "Searching Google via Serper API...")
-        with httpx.Client(timeout=30) as client:
-            resp = client.post(
-                "https://google.serper.dev/search",
-                headers={"X-API-KEY": serper_key, "Content-Type": "application/json"},
-                json={"q": keyword},
-            )
-            resp.raise_for_status()
-            search_data = resp.json()
+            _push(job_store, job_id, "Searching Google via Serper API...")
+            with httpx.Client(timeout=30) as client:
+                resp = client.post(
+                    "https://google.serper.dev/search",
+                    headers={"X-API-KEY": serper_key, "Content-Type": "application/json"},
+                    json={"q": keyword},
+                )
+                resp.raise_for_status()
+                search_data = resp.json()
 
-        organic = search_data.get("organic", [])[:5]
-        if not organic:
-            raise ValueError("No organic search results returned by Serper")
+            organic = search_data.get("organic", [])[:5]
+            if not organic:
+                raise ValueError("No organic search results returned by Serper")
 
-        _push(job_store, job_id, f"Found {len(organic)} results — fetching competitor pages...")
+        _push(job_store, job_id, f"Found {len(organic)} pages — fetching competitor content...")
 
         # ── Step 2: Fetch + extract each page ─────────────────────────────────
         competitor_data = []

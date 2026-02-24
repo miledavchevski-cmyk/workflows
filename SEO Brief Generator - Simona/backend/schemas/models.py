@@ -8,6 +8,7 @@ class ResearchRequest(BaseModel):
 
 class ContentBriefRequest(BaseModel):
     keyword: str
+    competitor_urls: list[str] = []
 
 
 class ResearchResponse(BaseModel):

@@ -241,7 +241,9 @@ async def start_content_brief(request: ContentBriefRequest):
     }
 
     thread = threading.Thread(
-        target=run_content_brief, args=(job_store, job_id, keyword), daemon=True
+        target=run_content_brief,
+        args=(job_store, job_id, keyword, request.competitor_urls or None),
+        daemon=True,
     )
     thread.start()
 
